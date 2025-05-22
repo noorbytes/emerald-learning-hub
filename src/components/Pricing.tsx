@@ -2,9 +2,15 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Check } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { updateUserRole, UserRole } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 const Pricing = () => {
   const [isAnnual, setIsAnnual] = useState(true);
+  const { user, isSupabaseConnected } = useAuth();
+  const navigate = useNavigate();
   
   const pricingPlans = [
     {
@@ -22,6 +28,7 @@ const Pricing = () => {
       ],
       buttonText: "Sign up for free",
       popular: false,
+      role: 'free' as UserRole,
     },
     {
       name: "Basic",
@@ -39,6 +46,7 @@ const Pricing = () => {
       ],
       buttonText: "Get Basic",
       popular: true,
+      role: 'basic' as UserRole,
     },
     {
       name: "Premium",
@@ -57,8 +65,34 @@ const Pricing = () => {
       ],
       buttonText: "Get Premium",
       popular: false,
+      role: 'premium' as UserRole,
     }
   ];
+
+  const handlePlanSelect = async (role: UserRole) => {
+    if (!user) {
+      // If user is not logged in, redirect to auth page
+      navigate('/auth');
+      return;
+    }
+    
+    if (!isSupabaseConnected) {
+      toast.error('Cannot update subscription: Supabase is not connected');
+      return;
+    }
+    
+    try {
+      // If user is logged in, update their role
+      await updateUserRole(user.id, role);
+      
+      toast.success(`You've been upgraded to ${role} plan!`);
+      // Redirect to dashboard
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast.error('Failed to update subscription');
+    }
+  };
 
   return (
     <section id="pricing" className="section-padding">
@@ -116,6 +150,7 @@ const Pricing = () => {
                       ? 'bg-primary hover:bg-primary-600' 
                       : 'bg-primary/90 hover:bg-primary'
                   }`}
+                  onClick={() => handlePlanSelect(plan.role)}
                 >
                   {plan.buttonText}
                 </Button>

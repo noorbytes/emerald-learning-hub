@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getBoards, getLevels, getSubjects, saveUserSubjects, createUserProfile } from '@/lib/supabase';
+import { getBoards, getLevels, getSubjects, saveUserSubjects, createUserProfile, UserRole } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
-import { GraduationCap, Book, Columns2 } from 'lucide-react';
+import { GraduationCap, Book, Columns2, Shield, User } from 'lucide-react';
 
 interface Board {
   id: string;
@@ -35,6 +35,7 @@ const Onboarding = () => {
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('free');
   
   const { user, loading: authLoading, isSupabaseConnected } = useAuth();
   const navigate = useNavigate();
@@ -140,15 +141,20 @@ const Onboarding = () => {
     });
   };
 
+  const handleRoleSelect = (role: UserRole) => {
+    setSelectedRole(role);
+  };
+
   const handleComplete = async () => {
     if (!user || !isSupabaseConnected) return;
     
     setLoading(true);
     try {
-      // Save user profile with board and level info
+      // Save user profile with board, level, and role info
       await createUserProfile(user.id, {
         board_id: selectedBoard,
         level_id: selectedLevel,
+        role: selectedRole,
         onboarding_completed: true
       });
       
@@ -210,16 +216,19 @@ const Onboarding = () => {
             {step === 1 && <GraduationCap className="h-10 w-10 text-primary" />}
             {step === 2 && <Book className="h-10 w-10 text-primary" />}
             {step === 3 && <Columns2 className="h-10 w-10 text-primary" />}
+            {step === 4 && <Shield className="h-10 w-10 text-primary" />}
           </div>
           <CardTitle className="text-center text-2xl font-bold">
             {step === 1 && "Select Your Exam Board"}
             {step === 2 && "Select Your Level"}
             {step === 3 && "Select Your Subjects"}
+            {step === 4 && "Choose Your Plan"}
           </CardTitle>
           <CardDescription className="text-center">
             {step === 1 && "Choose the examination board you're studying under"}
             {step === 2 && "Which qualification level are you preparing for?"}
             {step === 3 && "Select the subjects you're currently studying"}
+            {step === 4 && "Select a plan that best fits your needs"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -288,6 +297,52 @@ const Onboarding = () => {
                   )}
                 </div>
               )}
+              
+              {step === 4 && (
+                <div className="space-y-6">
+                  <div 
+                    className={`border rounded-lg p-5 cursor-pointer ${selectedRole === 'free' ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
+                    onClick={() => handleRoleSelect('free')}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <User className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium text-lg">Free Plan</h3>
+                      </div>
+                      <p className="font-bold">£0</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Access basic features including limited study notes and community forum.</p>
+                  </div>
+                  
+                  <div 
+                    className={`border rounded-lg p-5 cursor-pointer ${selectedRole === 'basic' ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
+                    onClick={() => handleRoleSelect('basic')}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Book className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium text-lg">Basic Plan</h3>
+                      </div>
+                      <p className="font-bold">£5/month</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Full access to study notes, flashcards, and past papers.</p>
+                  </div>
+                  
+                  <div 
+                    className={`border rounded-lg p-5 cursor-pointer ${selectedRole === 'premium' ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
+                    onClick={() => handleRoleSelect('premium')}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium text-lg">Premium Plan</h3>
+                      </div>
+                      <p className="font-bold">£7/month</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Everything in Basic plus AI Exam Room, AI Tutor, and priority support.</p>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>
@@ -310,20 +365,24 @@ const Onboarding = () => {
             </Button>
           )}
           
-          {step < 3 ? (
+          {step < 4 ? (
             <Button 
               onClick={() => {
                 if (step === 1 && selectedBoard) setStep(2);
                 else if (step === 2 && selectedLevel) setStep(3);
+                else if (step === 3 && selectedSubjects.length > 0) setStep(4);
               }}
-              disabled={(step === 1 && !selectedBoard) || (step === 2 && !selectedLevel) || loading}
+              disabled={(step === 1 && !selectedBoard) || 
+                       (step === 2 && !selectedLevel) || 
+                       (step === 3 && selectedSubjects.length === 0) || 
+                       loading}
             >
               Continue
             </Button>
           ) : (
             <Button 
               onClick={handleComplete}
-              disabled={selectedSubjects.length === 0 || loading}
+              disabled={loading}
             >
               {loading ? 'Saving...' : 'Complete'}
             </Button>

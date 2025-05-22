@@ -5,8 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { signOut, getUserProfile, getUserSubjects } from '@/lib/supabase';
-import { LogOut, User, AlertTriangle, Book } from 'lucide-react';
+import { signOut, getUserProfile, getUserSubjects, updateUserRole, UserRole } from '@/lib/supabase';
+import { LogOut, User, AlertTriangle, Book, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
@@ -66,6 +66,20 @@ const Dashboard = () => {
     }
   };
 
+  const handleUpgrade = async (role: UserRole) => {
+    if (!user) return;
+    
+    try {
+      await updateUserRole(user.id, role);
+      setUserProfile(prev => ({...prev, role}));
+      
+      toast.success(`You've been upgraded to ${role} plan!`);
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast.error('Failed to update subscription');
+    }
+  };
+
   if (loading || loadingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -112,6 +126,9 @@ const Dashboard = () => {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
+
+  // Get user's role from profile
+  const userRole = userProfile?.role || 'free';
 
   return (
     <div className="min-h-screen bg-background">
@@ -216,17 +233,68 @@ const Dashboard = () => {
                 </CardFooter>
               </Card>
               
-              <Card>
-                <CardHeader>
-                  <CardTitle>Subscription</CardTitle>
-                  <CardDescription>Manage your plan</CardDescription>
+              <Card className="border-2">
+                <CardHeader className={userRole !== 'free' ? 'bg-primary/10' : ''}>
+                  <div className="flex items-center gap-2">
+                    <Shield className={`h-5 w-5 ${userRole !== 'free' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <CardTitle>Subscription</CardTitle>
+                  </div>
+                  <CardDescription>Current plan: <span className="font-medium capitalize">{userRole}</span></CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <p>Free Plan</p>
-                  <p className="text-sm text-muted-foreground">Limited access</p>
+                <CardContent className="space-y-2 pt-4">
+                  {userRole === 'free' && (
+                    <>
+                      <p>Limited access to study materials</p>
+                      <div className="h-2 w-full bg-gray-100 rounded-full mt-2">
+                        <div className="h-2 w-1/4 bg-primary rounded-full"></div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Upgrade to access more features</p>
+                    </>
+                  )}
+                  
+                  {userRole === 'basic' && (
+                    <>
+                      <p>Full access to study notes and past papers</p>
+                      <div className="h-2 w-full bg-gray-100 rounded-full mt-2">
+                        <div className="h-2 w-2/3 bg-primary rounded-full"></div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Upgrade to Premium for AI features</p>
+                    </>
+                  )}
+                  
+                  {userRole === 'premium' && (
+                    <>
+                      <p>Full access to all features including AI</p>
+                      <div className="h-2 w-full bg-gray-100 rounded-full mt-2">
+                        <div className="h-2 w-full bg-primary rounded-full"></div>
+                      </div>
+                      <p className="text-xs text-primary font-medium">Premium Plan Active</p>
+                    </>
+                  )}
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" className="w-full">Upgrade Plan</Button>
+                  {userRole === 'free' && (
+                    <div className="w-full grid grid-cols-2 gap-2">
+                      <Button variant="outline" className="w-full" onClick={() => handleUpgrade('basic')}>
+                        Basic (£5)
+                      </Button>
+                      <Button className="w-full" onClick={() => handleUpgrade('premium')}>
+                        Premium (£7)
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {userRole === 'basic' && (
+                    <Button className="w-full" onClick={() => handleUpgrade('premium')}>
+                      Upgrade to Premium (£7)
+                    </Button>
+                  )}
+                  
+                  {userRole === 'premium' && (
+                    <Button variant="outline" className="w-full">
+                      Manage Subscription
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             </>

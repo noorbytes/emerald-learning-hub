@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
@@ -126,6 +125,9 @@ export const getCurrentUser = async () => {
   return user;
 };
 
+// User roles
+export type UserRole = 'free' | 'basic' | 'premium';
+
 // Functions for user preferences and onboarding
 export const createUserProfile = async (userId: string, data: any) => {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -133,13 +135,17 @@ export const createUserProfile = async (userId: string, data: any) => {
     return { data: null, error: new Error('Supabase not connected') };
   }
   
+  // Set default role to free if not specified
+  const userData = {
+    ...data,
+    role: data.role || 'free',
+    created_at: new Date(),
+    user_id: userId,
+  };
+  
   const { error } = await supabase
     .from('user_profiles')
-    .insert([{ 
-      user_id: userId,
-      ...data,
-      created_at: new Date(),
-    }]);
+    .insert([userData]);
   
   return { error };
 };
@@ -168,6 +174,20 @@ export const updateUserProfile = async (userId: string, data: any) => {
   const { error } = await supabase
     .from('user_profiles')
     .update(data)
+    .eq('user_id', userId);
+  
+  return { error };
+};
+
+export const updateUserRole = async (userId: string, role: UserRole) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ role })
     .eq('user_id', userId);
   
   return { error };
