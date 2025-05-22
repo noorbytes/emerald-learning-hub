@@ -21,6 +21,7 @@ const createDummyClient = () => {
       signInWithPassword: showError,
       signUp: showError,
       signInWithOAuth: showError,
+      signInWithOtp: showError,
       signOut: showError,
       getUser: () => ({ data: { user: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
@@ -79,6 +80,33 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
+export const signInWithMicrosoft = async () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'azure',
+  });
+  return { data, error };
+};
+
+export const signInWithMagicLink = async (email: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/dashboard`,
+    },
+  });
+  return { data, error };
+};
+
 export const signOut = async () => {
   if (!supabaseUrl || !supabaseAnonKey) {
     toast.error('Please connect your project to Supabase first.');
@@ -96,4 +124,150 @@ export const getCurrentUser = async () => {
   
   const { data: { user } } = await supabase.auth.getUser();
   return user;
+};
+
+// Functions for user preferences and onboarding
+export const createUserProfile = async (userId: string, data: any) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { error } = await supabase
+    .from('user_profiles')
+    .insert([{ 
+      user_id: userId,
+      ...data,
+      created_at: new Date(),
+    }]);
+  
+  return { error };
+};
+
+export const getUserProfile = async (userId: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  
+  return { data, error };
+};
+
+export const updateUserProfile = async (userId: string, data: any) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { error } = await supabase
+    .from('user_profiles')
+    .update(data)
+    .eq('user_id', userId);
+  
+  return { error };
+};
+
+export const getBoards = async () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { data, error } = await supabase
+    .from('boards')
+    .select('*')
+    .order('name');
+  
+  return { data, error };
+};
+
+export const getLevels = async (boardId?: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  let query = supabase.from('levels').select('*');
+  
+  if (boardId) {
+    query = query.eq('board_id', boardId);
+  }
+  
+  const { data, error } = await query.order('name');
+  return { data, error };
+};
+
+export const getSubjects = async (levelId?: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  let query = supabase.from('subjects').select('*');
+  
+  if (levelId) {
+    query = query.eq('level_id', levelId);
+  }
+  
+  const { data, error } = await query.order('name');
+  return { data, error };
+};
+
+export const saveUserSubjects = async (userId: string, subjectIds: string[]) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  // First delete existing preferences
+  await supabase
+    .from('user_subjects')
+    .delete()
+    .eq('user_id', userId);
+  
+  // Then insert new ones
+  const { error } = await supabase
+    .from('user_subjects')
+    .insert(subjectIds.map(subjectId => ({
+      user_id: userId,
+      subject_id: subjectId,
+    })));
+  
+  return { error };
+};
+
+export const getUserSubjects = async (userId: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast.error('Please connect your project to Supabase first.');
+    return { data: null, error: new Error('Supabase not connected') };
+  }
+  
+  const { data, error } = await supabase
+    .from('user_subjects')
+    .select(`
+      subject_id,
+      subjects:subject_id (
+        id,
+        name,
+        level_id,
+        levels:level_id (
+          id,
+          name,
+          board_id,
+          boards:board_id (
+            id,
+            name
+          )
+        )
+      )
+    `)
+    .eq('user_id', userId);
+  
+  return { data, error };
 };

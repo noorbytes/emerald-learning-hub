@@ -1,16 +1,53 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+
+import React, { useEffect, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { signOut } from '@/lib/supabase';
-import { LogOut, User, AlertTriangle } from 'lucide-react';
+import { signOut, getUserProfile, getUserSubjects } from '@/lib/supabase';
+import { LogOut, User, AlertTriangle, Book } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
   const { user, loading, isAdmin, isSupabaseConnected } = useAuth();
   const { toast: uiToast } = useToast();
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userSubjects, setUserSubjects] = useState<any[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user || !isSupabaseConnected) return;
+      
+      try {
+        // Get user profile
+        const { data: profileData } = await getUserProfile(user.id);
+        setUserProfile(profileData);
+        
+        // If onboarding is not completed, redirect to onboarding
+        if (profileData && !profileData.onboarding_completed) {
+          navigate('/onboarding');
+          return;
+        }
+        
+        // Get user subjects
+        const { data: subjectsData } = await getUserSubjects(user.id);
+        setUserSubjects(subjectsData || []);
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    
+    if (user && isSupabaseConnected) {
+      fetchUserData();
+    } else if (!loading && isSupabaseConnected) {
+      setLoadingProfile(false);
+    }
+  }, [user, isSupabaseConnected, loading, navigate]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -29,7 +66,7 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) {
+  if (loading || loadingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
@@ -111,6 +148,30 @@ const Dashboard = () => {
               <Button variant="outline" className="w-full">Edit Profile</Button>
             </CardFooter>
           </Card>
+          
+          {userSubjects.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Subjects</CardTitle>
+                <CardDescription>Currently studying</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="space-y-2">
+                  {userSubjects.map((userSubject: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
+                      <Book className="h-4 w-4 text-primary" />
+                      <span>{userSubject.subjects?.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button variant="outline" className="w-full" onClick={() => navigate('/onboarding')}>
+                  Change Subjects
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
           
           {isAdmin ? (
             <>
